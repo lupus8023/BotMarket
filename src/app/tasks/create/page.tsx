@@ -1,14 +1,22 @@
 "use client";
 
 import { Navbar } from "@/components/Navbar";
-import { useState } from "react";
-import { useAccount } from "wagmi";
+import { useState, useEffect } from "react";
+import { useAccount, useReadContract } from "wagmi";
 import { TOKENS, SKILL_CATEGORIES } from "@/lib/constants";
 import { useRouter } from "next/navigation";
+import { useEscrow } from "@/hooks/useEscrow";
+import { ERC20_ABI } from "@/lib/abi";
+import { ESCROW_CONTRACT, PAYMENT_TOKEN } from "@/lib/wagmi";
+import { bsc } from "wagmi/chains";
+import { parseUnits } from "viem";
 
 export default function CreateTaskPage() {
   const { address, isConnected } = useAccount();
   const router = useRouter();
+  const { approveToken, createTask, isPending, isConfirming, isSuccess, hash } = useEscrow();
+  const [step, setStep] = useState<"form" | "approve" | "create">("form");
+  const [taskId, setTaskId] = useState<string | null>(null);
   const [form, setForm] = useState({
     title: "",
     description: "",
@@ -19,6 +27,36 @@ export default function CreateTaskPage() {
     deadline: 24,
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const escrowAddress = ESCROW_CONTRACT[bsc.id] as `0x${string}`;
+  const tokenAddress = PAYMENT_TOKEN[bsc.id] as `0x${string}`;
+
+  // Check allowance
+  const { data: allowance } = useReadContract({
+    address: tokenAddress,
+    abi: ERC20_ABI,
+    functionName: "allowance",
+    args: address ? [address, escrowAddress] : undefined,
+  });
+
+  // Calculate total with fee
+  const budgetNum = parseFloat(form.budget) || 0;
+  const totalWithFee = (budgetNum * 1.05).toFixed(6);
+
+  // Handle transaction success
+  useEffect(() => {
+    if (isSuccess && step === "approve") {
+      setStep("create");
+      // Create task on chain
+      if (taskId) {
+        createTask(taskId, form.budget, form.deadline);
+      }
+    }
+    if (isSuccess && step === "create") {
+      alert("Task created on blockchain!");
+      router.push("/tasks");
+    }
+  }, [isSuccess, step]);
 
   const handleSubmit = async () => {
     if (!isConnected || !address) {
@@ -34,6 +72,7 @@ export default function CreateTaskPage() {
     try {
       const deadline = new Date(Date.now() + form.deadline * 60 * 60 * 1000);
 
+      // 1. Save to database first
       const res = await fetch("/api/tasks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -54,12 +93,29 @@ export default function CreateTaskPage() {
         throw new Error(err.error || "Failed to create task");
       }
 
-      alert("Task created successfully!");
-      router.push("/tasks");
+      const task = await res.json();
+      setTaskId(task.id);
+
+      // 2. Check if we need to approve tokens (only for USDT on-chain)
+      if (form.token === "USDT") {
+        const requiredAmount = parseUnits(totalWithFee, 6);
+        const currentAllowance = allowance || BigInt(0);
+
+        if (currentAllowance < requiredAmount) {
+          setStep("approve");
+          approveToken(totalWithFee);
+        } else {
+          setStep("create");
+          createTask(task.id, form.budget, form.deadline);
+        }
+      } else {
+        // For other tokens, just save to DB (no on-chain for now)
+        alert("Task created successfully!");
+        router.push("/tasks");
+      }
     } catch (error) {
       console.error("Error:", error);
       alert(error instanceof Error ? error.message : "Failed to submit task");
-    } finally {
       setIsSubmitting(false);
     }
   };
@@ -190,11 +246,23 @@ export default function CreateTaskPage() {
 
         <button
           onClick={handleSubmit}
-          disabled={isSubmitting}
+          disabled={isSubmitting || isPending || isConfirming}
           className="w-full bg-emerald-500 text-white py-3 rounded-full font-medium hover:bg-emerald-600 transition mt-4 disabled:opacity-50"
         >
-          {isSubmitting ? "Submitting..." : "Post Task"}
+          {isPending || isConfirming
+            ? step === "approve"
+              ? "Approving..."
+              : "Creating on chain..."
+            : isSubmitting
+            ? "Saving..."
+            : `Post Task (${totalWithFee} ${form.token})`}
         </button>
+
+        {hash && (
+          <p className="text-center text-zinc-500 text-sm mt-2">
+            Tx: {hash.slice(0, 10)}...{hash.slice(-8)}
+          </p>
+        )}
       </main>
     </div>
   );
