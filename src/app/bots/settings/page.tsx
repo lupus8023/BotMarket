@@ -1,10 +1,28 @@
 "use client";
 
 import { Navbar } from "@/components/Navbar";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useAccount } from "wagmi";
+import { useRouter } from "next/navigation";
 import { SKILL_CATEGORIES, TOKENS } from "@/lib/constants";
 
+interface Bot {
+  id: string;
+  name: string;
+  skills: string[];
+  acceptedTokens: string[];
+  minBudgets: Record<string, string>;
+  maxConcurrent: number;
+  autoAccept: boolean;
+  status: string;
+}
+
 export default function BotSettingsPage() {
+  const { address, isConnected } = useAccount();
+  const router = useRouter();
+  const [bot, setBot] = useState<Bot | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [settings, setSettings] = useState({
     minBudgets: {
       USDT: "10",
@@ -12,19 +30,108 @@ export default function BotSettingsPage() {
       ETH: "0.01",
       GOLLAR: "100",
     } as Record<string, string>,
-    acceptedTokens: ["USDT", "ETH"] as string[],
+    acceptedTokens: ["USDT"] as string[],
     maxConcurrent: 3,
     autoAccept: true,
-    skills: ["code-generation", "copywriting"],
+    skills: [] as string[],
     status: "online",
   });
+
+  // Fetch bot data
+  useEffect(() => {
+    if (!address) {
+      setLoading(false);
+      return;
+    }
+
+    fetch(`/api/bots?wallet=${address}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data && data.id) {
+          setBot(data);
+          setSettings({
+            minBudgets: data.minBudgets || {},
+            acceptedTokens: data.acceptedTokens || ["USDT"],
+            maxConcurrent: data.maxConcurrent || 3,
+            autoAccept: data.autoAccept ?? true,
+            skills: data.skills || [],
+            status: data.status || "online",
+          });
+        }
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, [address]);
+
+  const handleSave = async () => {
+    if (!bot) return;
+
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/bots/${bot.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(settings),
+      });
+
+      if (!res.ok) {
+        throw new Error("Failed to save");
+      }
+
+      alert("Settings saved!");
+      router.push("/bots/dashboard");
+    } catch (error) {
+      alert("Failed to save settings");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!isConnected) {
+    return (
+      <div className="min-h-screen bg-zinc-950 text-white">
+        <Navbar />
+        <main className="pt-32 pb-20 max-w-2xl mx-auto px-6 text-center">
+          <p className="text-zinc-400">Please connect your wallet.</p>
+        </main>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-zinc-950 text-white">
+        <Navbar />
+        <main className="pt-32 pb-20 max-w-2xl mx-auto px-6 text-center">
+          <p className="text-zinc-400">Loading...</p>
+        </main>
+      </div>
+    );
+  }
+
+  if (!bot) {
+    return (
+      <div className="min-h-screen bg-zinc-950 text-white">
+        <Navbar />
+        <main className="pt-32 pb-20 max-w-2xl mx-auto px-6 text-center">
+          <p className="text-zinc-400 mb-4">No bot registered.</p>
+          <button
+            onClick={() => router.push("/bots/register")}
+            className="bg-emerald-500 text-white px-6 py-2 rounded-full"
+          >
+            Register Bot
+          </button>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-zinc-950 text-white">
       <Navbar />
       <main className="pt-32 pb-20 max-w-2xl mx-auto px-6">
         <h1 className="text-3xl font-bold mb-2">Bot Settings</h1>
-        <p className="text-zinc-400 mb-8">Configure your bot&apos;s behavior</p>
+        <p className="text-zinc-400 mb-8">Configure {bot.name}&apos;s behavior</p>
 
         {/* Status */}
         <Section title="Status">
@@ -47,9 +154,6 @@ export default function BotSettingsPage() {
 
         {/* Accepted Tokens */}
         <Section title="Accepted Tokens">
-          <p className="text-zinc-400 text-sm mb-3">
-            Select which tokens you accept for payment
-          </p>
           <div className="flex gap-3 mb-4">
             {TOKENS.map((token) => (
               <button
@@ -75,9 +179,6 @@ export default function BotSettingsPage() {
 
         {/* Min Budget per Token */}
         <Section title="Minimum Budget">
-          <p className="text-zinc-400 text-sm mb-3">
-            Set minimum budget for each accepted token
-          </p>
           <div className="space-y-3">
             {TOKENS.filter((token) => settings.acceptedTokens.includes(token)).map((token) => (
               <div key={token} className="flex items-center gap-3">
@@ -99,13 +200,10 @@ export default function BotSettingsPage() {
 
         {/* Max Concurrent */}
         <Section title="Max Concurrent Tasks">
-          <p className="text-zinc-400 text-sm mb-3">
-            Maximum number of tasks to handle at once
-          </p>
           <input
             type="number"
             value={settings.maxConcurrent}
-            onChange={(e) => setSettings({ ...settings, maxConcurrent: parseInt(e.target.value) })}
+            onChange={(e) => setSettings({ ...settings, maxConcurrent: parseInt(e.target.value) || 1 })}
             className="bg-zinc-900 border border-zinc-700 rounded-lg px-4 py-2 w-24 focus:outline-none focus:border-emerald-500"
             min="1"
             max="10"
@@ -121,17 +219,12 @@ export default function BotSettingsPage() {
               onChange={(e) => setSettings({ ...settings, autoAccept: e.target.checked })}
               className="w-5 h-5 rounded bg-zinc-900 border-zinc-700"
             />
-            <span className="text-zinc-300">
-              Automatically claim matching tasks
-            </span>
+            <span className="text-zinc-300">Automatically claim matching tasks</span>
           </label>
         </Section>
 
         {/* Skills */}
         <Section title="Active Skills">
-          <p className="text-zinc-400 text-sm mb-3">
-            Only accept tasks requiring these skills
-          </p>
           <div className="space-y-4">
             {Object.entries(SKILL_CATEGORIES).map(([key, category]) => (
               <div key={key}>
@@ -162,8 +255,12 @@ export default function BotSettingsPage() {
           </div>
         </Section>
 
-        <button className="w-full bg-emerald-500 text-white py-3 rounded-full font-medium hover:bg-emerald-600 transition mt-8">
-          Save Settings
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="w-full bg-emerald-500 text-white py-3 rounded-full font-medium hover:bg-emerald-600 transition mt-8 disabled:opacity-50"
+        >
+          {saving ? "Saving..." : "Save Settings"}
         </button>
       </main>
     </div>
