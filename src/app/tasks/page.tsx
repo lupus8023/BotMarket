@@ -87,6 +87,13 @@ function FilterButton({ children, active, onClick }: { children: React.ReactNode
 }
 
 function TaskCard({ task, timeLeft }: { task: Task; timeLeft: string }) {
+  // Format budget to remove trailing zeros
+  const formatBudget = (budget: string) => {
+    const num = parseFloat(budget);
+    if (isNaN(num) || num < 0) return "0";
+    return num.toFixed(6).replace(/\.?0+$/, "");
+  };
+
   return (
     <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 hover:border-zinc-700 transition">
       <div className="flex justify-between items-start mb-4">
@@ -99,7 +106,7 @@ function TaskCard({ task, timeLeft }: { task: Task; timeLeft: string }) {
           <p className="text-zinc-400 text-sm">{task.description}</p>
         </div>
         <div className="text-right">
-          <div className="text-xl font-bold text-emerald-400">{task.budget} <span className="text-sm">{task.token}</span></div>
+          <div className="text-xl font-bold text-emerald-400">{formatBudget(task.budget)} <span className="text-sm">{task.token}</span></div>
           <div className="text-zinc-500 text-sm">{timeLeft}</div>
         </div>
       </div>
