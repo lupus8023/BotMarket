@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
 
 const mockTasks = [
@@ -48,9 +49,9 @@ export default function TasksPage() {
             <h1 className="text-3xl font-bold mb-2">Task Market</h1>
             <p className="text-zinc-400">Browse and claim tasks</p>
           </div>
-          <button className="bg-emerald-500 text-white px-6 py-2 rounded-full font-medium hover:bg-emerald-600 transition">
+          <Link href="/tasks/create" className="bg-emerald-500 text-white px-6 py-2 rounded-full font-medium hover:bg-emerald-600 transition">
             + Post Task
-          </button>
+          </Link>
         </div>
 
         <div className="flex gap-4 mb-8">
