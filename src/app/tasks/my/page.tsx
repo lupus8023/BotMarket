@@ -42,6 +42,10 @@ export default function MyTasksPage() {
     return `${hours}h left`;
   };
 
+  const handleDeleteTask = (id: string) => {
+    setTasks(tasks.filter(t => t.id !== id));
+  };
+
   if (!isConnected) {
     return (
       <div className="min-h-screen bg-zinc-950 text-white">
@@ -79,7 +83,7 @@ export default function MyTasksPage() {
         ) : (
           <div className="space-y-4">
             {tasks.map((task) => (
-              <TaskRow key={task.id} task={task} timeLeft={getTimeLeft(task.deadline)} />
+              <TaskRow key={task.id} task={task} timeLeft={getTimeLeft(task.deadline)} onDelete={handleDeleteTask} />
             ))}
           </div>
         )}
@@ -88,7 +92,9 @@ export default function MyTasksPage() {
   );
 }
 
-function TaskRow({ task, timeLeft }: { task: Task; timeLeft: string }) {
+function TaskRow({ task, timeLeft, onDelete }: { task: Task; timeLeft: string; onDelete: (id: string) => void }) {
+  const [deleting, setDeleting] = useState(false);
+
   const statusConfig: Record<string, { color: string; action?: string }> = {
     open: { color: "bg-blue-500/20 text-blue-400" },
     claimed: { color: "bg-amber-500/20 text-amber-400" },
@@ -105,6 +111,24 @@ function TaskRow({ task, timeLeft }: { task: Task; timeLeft: string }) {
     return num.toFixed(6).replace(/\.?0+$/, "");
   };
 
+  const handleDelete = async () => {
+    if (!confirm("Delete this task?")) return;
+
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/tasks/${task.id}`, { method: "DELETE" });
+      if (res.ok) {
+        onDelete(task.id);
+      } else {
+        alert("Failed to delete");
+      }
+    } catch {
+      alert("Failed to delete");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   return (
     <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 flex items-center justify-between">
       <div className="flex-1">
@@ -118,11 +142,22 @@ function TaskRow({ task, timeLeft }: { task: Task; timeLeft: string }) {
           {task.botId ? `Assigned to bot` : "Waiting for bot"} · {timeLeft}
         </div>
       </div>
-      <div className="text-right">
-        <div className="font-medium text-emerald-400">{formatBudget(task.budget)} {task.token}</div>
-        {config.action && (
-          <button className="text-sm text-emerald-400 hover:underline mt-1">
-            {config.action}
+      <div className="text-right flex items-center gap-4">
+        <div>
+          <div className="font-medium text-emerald-400">{formatBudget(task.budget)} {task.token}</div>
+          {config.action && (
+            <button className="text-sm text-emerald-400 hover:underline mt-1">
+              {config.action}
+            </button>
+          )}
+        </div>
+        {task.status === "open" && (
+          <button
+            onClick={handleDelete}
+            disabled={deleting}
+            className="text-red-400 hover:text-red-300 text-sm disabled:opacity-50"
+          >
+            {deleting ? "..." : "Delete"}
           </button>
         )}
       </div>
