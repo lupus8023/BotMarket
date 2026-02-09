@@ -2,38 +2,57 @@
 
 import { Navbar } from "@/components/Navbar";
 import Link from "next/link";
+import { useAccount } from "wagmi";
+import { useEffect, useState } from "react";
 
-const myTasks = [
-  {
-    id: "task_001",
-    title: "Generate product descriptions",
-    budget: "50.000000",
-    token: "USDT",
-    status: "delivered",
-    bot: "CodeMaster",
-    deadline: "48h left",
-  },
-  {
-    id: "task_002",
-    title: "API documentation",
-    budget: "0.005000",
-    token: "BTC",
-    status: "in_progress",
-    bot: "ContentWriter",
-    deadline: "120h left",
-  },
-  {
-    id: "task_003",
-    title: "Data analysis report",
-    budget: "100.000000",
-    token: "GOLLAR",
-    status: "open",
-    bot: null,
-    deadline: "72h left",
-  },
-];
+interface Task {
+  id: string;
+  title: string;
+  budget: string;
+  token: string;
+  status: string;
+  botId: string | null;
+  deadline: string;
+}
 
 export default function MyTasksPage() {
+  const { address, isConnected } = useAccount();
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!address) {
+      setLoading(false);
+      return;
+    }
+
+    fetch(`/api/tasks?buyer=${address}`)
+      .then((res) => res.json())
+      .then((data) => {
+        setTasks(data.tasks || []);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, [address]);
+
+  const getTimeLeft = (deadline: string) => {
+    const diff = new Date(deadline).getTime() - Date.now();
+    if (diff <= 0) return "Expired";
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    return `${hours}h left`;
+  };
+
+  if (!isConnected) {
+    return (
+      <div className="min-h-screen bg-zinc-950 text-white">
+        <Navbar />
+        <main className="pt-32 pb-20 max-w-4xl mx-auto px-6 text-center">
+          <p className="text-zinc-400">Please connect your wallet to view your tasks.</p>
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-zinc-950 text-white">
       <Navbar />
@@ -51,25 +70,40 @@ export default function MyTasksPage() {
           </Link>
         </div>
 
-        <div className="space-y-4">
-          {myTasks.map((task) => (
-            <TaskRow key={task.id} task={task} />
-          ))}
-        </div>
+        {loading ? (
+          <div className="text-center text-zinc-400 py-12">Loading...</div>
+        ) : tasks.length === 0 ? (
+          <div className="text-center text-zinc-400 py-12">
+            No tasks yet. Post your first task!
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {tasks.map((task) => (
+              <TaskRow key={task.id} task={task} timeLeft={getTimeLeft(task.deadline)} />
+            ))}
+          </div>
+        )}
       </main>
     </div>
   );
 }
 
-function TaskRow({ task }: { task: typeof myTasks[0] }) {
+function TaskRow({ task, timeLeft }: { task: Task; timeLeft: string }) {
   const statusConfig: Record<string, { color: string; action?: string }> = {
     open: { color: "bg-blue-500/20 text-blue-400" },
+    claimed: { color: "bg-amber-500/20 text-amber-400" },
     in_progress: { color: "bg-amber-500/20 text-amber-400" },
     delivered: { color: "bg-emerald-500/20 text-emerald-400", action: "Review" },
     confirmed: { color: "bg-zinc-500/20 text-zinc-400" },
   };
 
-  const config = statusConfig[task.status];
+  const config = statusConfig[task.status] || statusConfig.open;
+
+  const formatBudget = (budget: string) => {
+    const num = parseFloat(budget);
+    if (isNaN(num) || num < 0) return "0";
+    return num.toFixed(6).replace(/\.?0+$/, "");
+  };
 
   return (
     <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 flex items-center justify-between">
@@ -81,11 +115,11 @@ function TaskRow({ task }: { task: typeof myTasks[0] }) {
           </span>
         </div>
         <div className="text-sm text-zinc-400">
-          {task.bot ? `Assigned to ${task.bot}` : "Waiting for bot"} · {task.deadline}
+          {task.botId ? `Assigned to bot` : "Waiting for bot"} · {timeLeft}
         </div>
       </div>
       <div className="text-right">
-        <div className="font-medium text-emerald-400">{task.budget} {task.token}</div>
+        <div className="font-medium text-emerald-400">{formatBudget(task.budget)} {task.token}</div>
         {config.action && (
           <button className="text-sm text-emerald-400 hover:underline mt-1">
             {config.action}
