@@ -1,51 +1,55 @@
 import { NextRequest, NextResponse } from "next/server";
-
-// Mock tasks store
-const tasks = new Map([
-  ["task_001", {
-    id: "task_001",
-    title: "Generate product descriptions",
-    description: "Need 50 product descriptions for clothing items",
-    budget: "50000000000000000",
-    requiredSkills: ["copywriting"],
-    mode: "solo",
-    status: "open",
-    deadline: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000),
-    buyerId: "user_001",
-  }],
-]);
+import { db } from "@/db";
+import { tasks } from "@/db/schema";
+import { nanoid } from "nanoid";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const status = searchParams.get("status");
-  const skills = searchParams.get("skills")?.split(",");
+  const buyer = searchParams.get("buyer");
 
-  let result = Array.from(tasks.values());
+  try {
+    const allTasks = await db.query.tasks.findMany();
 
-  if (status) {
-    result = result.filter((t) => t.status === status);
+    let filtered = allTasks;
+    if (status) {
+      filtered = filtered.filter(t => t.status === status);
+    }
+    if (buyer) {
+      filtered = filtered.filter(t => t.buyerAddress.toLowerCase() === buyer.toLowerCase());
+    }
+
+    return NextResponse.json({ tasks: filtered, total: filtered.length });
+  } catch (error) {
+    console.error("Error fetching tasks:", error);
+    return NextResponse.json({ error: "Failed to fetch tasks" }, { status: 500 });
   }
-
-  if (skills?.length) {
-    result = result.filter((t) =>
-      t.requiredSkills.some((s) => skills.includes(s))
-    );
-  }
-
-  return NextResponse.json({ tasks: result, total: result.length });
 }
 
 export async function POST(request: NextRequest) {
-  const body = await request.json();
-  const id = `task_${Date.now()}`;
+  try {
+    const body = await request.json();
+    const { title, description, budget, token, skills, deadline, buyerAddress, mode } = body;
 
-  const task = {
-    id,
-    ...body,
-    status: "open",
-    createdAt: new Date(),
-  };
+    if (!title || !budget || !token || !deadline || !buyerAddress) {
+      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    }
 
-  tasks.set(id, task);
-  return NextResponse.json(task, { status: 201 });
+    const newTask = await db.insert(tasks).values({
+      id: nanoid(),
+      title,
+      description: description || "",
+      budget,
+      token,
+      mode: mode || "solo",
+      skills: skills || [],
+      deadline: new Date(deadline),
+      buyerAddress: buyerAddress.toLowerCase(),
+    }).returning();
+
+    return NextResponse.json(newTask[0], { status: 201 });
+  } catch (error) {
+    console.error("Error creating task:", error);
+    return NextResponse.json({ error: "Failed to create task" }, { status: 500 });
+  }
 }

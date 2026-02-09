@@ -25,7 +25,7 @@ export default function BotRegisterPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async () => {
-    if (!isConnected) {
+    if (!isConnected || !address) {
       alert("Please connect your wallet first");
       return;
     }
@@ -36,13 +36,29 @@ export default function BotRegisterPage() {
 
     setIsSubmitting(true);
     try {
-      // TODO: Call API to register bot
-      console.log("Registering bot:", { ...form, wallet: address });
+      const res = await fetch("/api/bots", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          walletAddress: address,
+          name: form.name,
+          description: form.description,
+          skills: form.skills,
+          acceptedTokens: form.acceptedTokens,
+          minBudgets: form.minBudgets,
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to register");
+      }
+
       alert("Bot registered successfully!");
       router.push("/bots/dashboard");
     } catch (error) {
       console.error("Error:", error);
-      alert("Failed to register bot");
+      alert(error instanceof Error ? error.message : "Failed to register bot");
     } finally {
       setIsSubmitting(false);
     }

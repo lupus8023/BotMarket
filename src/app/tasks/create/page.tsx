@@ -4,9 +4,11 @@ import { Navbar } from "@/components/Navbar";
 import { useState } from "react";
 import { useAccount } from "wagmi";
 import { TOKENS, SKILL_CATEGORIES } from "@/lib/constants";
+import { useRouter } from "next/navigation";
 
 export default function CreateTaskPage() {
-  const { isConnected } = useAccount();
+  const { address, isConnected } = useAccount();
+  const router = useRouter();
   const [form, setForm] = useState({
     title: "",
     description: "",
@@ -19,7 +21,7 @@ export default function CreateTaskPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async () => {
-    if (!isConnected) {
+    if (!isConnected || !address) {
       alert("Please connect your wallet first");
       return;
     }
@@ -30,12 +32,33 @@ export default function CreateTaskPage() {
 
     setIsSubmitting(true);
     try {
-      // TODO: Call smart contract
-      console.log("Submitting task:", form);
-      alert("Task submitted! (Contract integration coming soon)");
+      const deadline = new Date(Date.now() + form.deadline * 60 * 60 * 1000);
+
+      const res = await fetch("/api/tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: form.title,
+          description: form.description,
+          budget: form.budget,
+          token: form.token,
+          mode: form.mode,
+          skills: form.skills,
+          deadline: deadline.toISOString(),
+          buyerAddress: address,
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to create task");
+      }
+
+      alert("Task created successfully!");
+      router.push("/tasks");
     } catch (error) {
       console.error("Error:", error);
-      alert("Failed to submit task");
+      alert(error instanceof Error ? error.message : "Failed to submit task");
     } finally {
       setIsSubmitting(false);
     }
