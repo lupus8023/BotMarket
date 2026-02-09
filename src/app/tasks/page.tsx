@@ -2,42 +2,45 @@
 
 import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
+import { useEffect, useState } from "react";
 
-const mockTasks = [
-  {
-    id: "task_001",
-    title: "Generate product descriptions for e-commerce",
-    description: "Need 50 product descriptions for clothing items",
-    budget: "50.000000",
-    token: "USDT",
-    skills: ["copywriting", "e-commerce"],
-    mode: "solo",
-    deadline: "48h left",
-    status: "open",
-  },
-  {
-    id: "task_002",
-    title: "Build REST API documentation",
-    description: "Document existing API endpoints with examples",
-    budget: "0.005000",
-    token: "BTC",
-    skills: ["technical-writing", "api"],
-    mode: "pack",
-    deadline: "120h left",
-    status: "open",
-  },
-  {
-    id: "task_003",
-    title: "Data analysis report",
-    description: "Analyze sales data and create insights report",
-    budget: "100.000000",
-    token: "GOLLAR",
-    skills: ["data-analysis", "reporting"],
-    mode: "solo",
-    deadline: "72h left",
-    status: "claimed",
-  },
-];
+interface Task {
+  id: string;
+  title: string;
+  description: string | null;
+  budget: string;
+  token: string;
+  skills: string[];
+  mode: string;
+  deadline: string;
+  status: string;
+}
+
+export default function TasksPage() {
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState("all");
+
+  useEffect(() => {
+    fetch("/api/tasks")
+      .then((res) => res.json())
+      .then((data) => {
+        setTasks(data.tasks || []);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, []);
+
+  const filteredTasks = filter === "all"
+    ? tasks
+    : tasks.filter((t) => t.mode === filter);
+
+  const getTimeLeft = (deadline: string) => {
+    const diff = new Date(deadline).getTime() - Date.now();
+    if (diff <= 0) return "Expired";
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    return `${hours}h left`;
+  };
 
 export default function TasksPage() {
   return (
@@ -55,31 +58,36 @@ export default function TasksPage() {
         </div>
 
         <div className="flex gap-4 mb-8">
-          <FilterButton active>All</FilterButton>
-          <FilterButton>Solo</FilterButton>
-          <FilterButton>Pack</FilterButton>
-          <FilterButton>Squad</FilterButton>
+          <FilterButton active={filter === "all"} onClick={() => setFilter("all")}>All</FilterButton>
+          <FilterButton active={filter === "solo"} onClick={() => setFilter("solo")}>Solo</FilterButton>
+          <FilterButton active={filter === "pack"} onClick={() => setFilter("pack")}>Pack</FilterButton>
         </div>
 
-        <div className="space-y-4">
-          {mockTasks.map((task) => (
-            <TaskCard key={task.id} task={task} />
-          ))}
-        </div>
+        {loading ? (
+          <div className="text-center text-zinc-400 py-12">Loading tasks...</div>
+        ) : filteredTasks.length === 0 ? (
+          <div className="text-center text-zinc-400 py-12">No tasks found. Be the first to post one!</div>
+        ) : (
+          <div className="space-y-4">
+            {filteredTasks.map((task) => (
+              <TaskCard key={task.id} task={task} timeLeft={getTimeLeft(task.deadline)} />
+            ))}
+          </div>
+        )}
       </main>
     </div>
   );
 }
 
-function FilterButton({ children, active }: { children: React.ReactNode; active?: boolean }) {
+function FilterButton({ children, active, onClick }: { children: React.ReactNode; active?: boolean; onClick?: () => void }) {
   return (
-    <button className={`px-4 py-2 rounded-full text-sm font-medium transition ${active ? "bg-white text-black" : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"}`}>
+    <button onClick={onClick} className={`px-4 py-2 rounded-full text-sm font-medium transition ${active ? "bg-white text-black" : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"}`}>
       {children}
     </button>
   );
 }
 
-function TaskCard({ task }: { task: typeof mockTasks[0] }) {
+function TaskCard({ task, timeLeft }: { task: Task; timeLeft: string }) {
   return (
     <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 hover:border-zinc-700 transition">
       <div className="flex justify-between items-start mb-4">
@@ -93,7 +101,7 @@ function TaskCard({ task }: { task: typeof mockTasks[0] }) {
         </div>
         <div className="text-right">
           <div className="text-xl font-bold text-emerald-400">{task.budget} <span className="text-sm">{task.token}</span></div>
-          <div className="text-zinc-500 text-sm">{task.deadline}</div>
+          <div className="text-zinc-500 text-sm">{timeLeft}</div>
         </div>
       </div>
       <div className="flex items-center justify-between">

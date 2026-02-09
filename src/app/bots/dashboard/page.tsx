@@ -2,16 +2,104 @@
 
 import { Navbar } from "@/components/Navbar";
 import Link from "next/link";
+import { useAccount } from "wagmi";
+import { useEffect, useState } from "react";
+
+interface Bot {
+  id: string;
+  name: string;
+  rating: string | null;
+  completedTasks: number;
+}
+
+interface Task {
+  id: string;
+  title: string;
+  budget: string;
+  token: string;
+  deadline: string;
+  status: string;
+}
 
 export default function BotDashboardPage() {
+  const { address, isConnected } = useAccount();
+  const [bot, setBot] = useState<Bot | null>(null);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!address) return;
+
+    // Fetch bot info
+    fetch(`/api/bots?wallet=${address}`)
+      .then((res) => res.json())
+      .then((data) => {
+        setBot(data);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+
+    // Fetch tasks claimed by this bot
+    fetch(`/api/tasks`)
+      .then((res) => res.json())
+      .then((data) => {
+        const myTasks = (data.tasks || []).filter((t: Task) =>
+          t.status === "claimed" || t.status === "in_progress"
+        );
+        setTasks(myTasks);
+      });
+  }, [address]);
+
+  const getTimeLeft = (deadline: string) => {
+    const diff = new Date(deadline).getTime() - Date.now();
+    if (diff <= 0) return "Expired";
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    return `${hours}h left`;
+  };
+  if (!isConnected) {
+    return (
+      <div className="min-h-screen bg-zinc-950 text-white">
+        <Navbar />
+        <main className="pt-32 pb-20 max-w-4xl mx-auto px-6 text-center">
+          <p className="text-zinc-400">Please connect your wallet to view dashboard.</p>
+        </main>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-zinc-950 text-white">
+        <Navbar />
+        <main className="pt-32 pb-20 max-w-4xl mx-auto px-6 text-center">
+          <p className="text-zinc-400">Loading...</p>
+        </main>
+      </div>
+    );
+  }
+
+  if (!bot) {
+    return (
+      <div className="min-h-screen bg-zinc-950 text-white">
+        <Navbar />
+        <main className="pt-32 pb-20 max-w-4xl mx-auto px-6 text-center">
+          <p className="text-zinc-400 mb-4">No bot registered with this wallet.</p>
+          <Link href="/bots/register" className="bg-emerald-500 text-white px-6 py-2 rounded-full">
+            Register Bot
+          </Link>
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-zinc-950 text-white">
       <Navbar />
       <main className="pt-32 pb-20 max-w-4xl mx-auto px-6">
         <div className="flex justify-between items-center mb-8">
           <div>
-            <h1 className="text-3xl font-bold mb-2">Bot Dashboard</h1>
-            <p className="text-zinc-400">Manage your bot</p>
+            <h1 className="text-3xl font-bold mb-2">{bot.name}</h1>
+            <p className="text-zinc-400">Bot Dashboard</p>
           </div>
           <Link
             href="/bots/settings"
@@ -23,37 +111,29 @@ export default function BotDashboardPage() {
 
         {/* Stats */}
         <div className="grid grid-cols-4 gap-4 mb-8">
-          <StatCard label="Total Earned" value="125 USDT" />
-          <StatCard label="Pending" value="15 USDT" />
-          <StatCard label="Tasks Done" value="23" />
-          <StatCard label="Rating" value="4.8" />
+          <StatCard label="Total Earned" value="0 USDT" />
+          <StatCard label="Pending" value="0 USDT" />
+          <StatCard label="Tasks Done" value={String(bot.completedTasks)} />
+          <StatCard label="Rating" value={bot.rating || "N/A"} />
         </div>
 
         {/* Current Tasks */}
         <Section title="Active Tasks">
-          <div className="space-y-3">
-            <ActiveTask
-              title="Generate product descriptions"
-              budget="50 USDT"
-              deadline="24h left"
-              status="in_progress"
-            />
-            <ActiveTask
-              title="API documentation"
-              budget="0.005 BTC"
-              deadline="48h left"
-              status="claimed"
-            />
-          </div>
-        </Section>
-
-        {/* History */}
-        <Section title="Recent History">
-          <div className="space-y-2">
-            <HistoryRow title="Data analysis" amount="+80 GOLLAR" time="2h ago" />
-            <HistoryRow title="Translation task" amount="+30 USDT" time="1d ago" />
-            <HistoryRow title="Code review" amount="+0.001 BTC" time="2d ago" />
-          </div>
+          {tasks.length === 0 ? (
+            <p className="text-zinc-500">No active tasks. Browse the market to claim tasks.</p>
+          ) : (
+            <div className="space-y-3">
+              {tasks.map((task) => (
+                <ActiveTask
+                  key={task.id}
+                  title={task.title}
+                  budget={`${task.budget} ${task.token}`}
+                  deadline={getTimeLeft(task.deadline)}
+                  status={task.status}
+                />
+              ))}
+            </div>
+          )}
         </Section>
       </main>
     </div>
