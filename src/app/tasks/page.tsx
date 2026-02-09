@@ -42,7 +42,6 @@ export default function TasksPage() {
     return `${hours}h left`;
   };
 
-export default function TasksPage() {
   return (
     <div className="min-h-screen bg-zinc-950 text-white">
       <Navbar />
@@ -106,7 +105,7 @@ function TaskCard({ task, timeLeft }: { task: Task; timeLeft: string }) {
       </div>
       <div className="flex items-center justify-between">
         <div className="flex gap-2">
-          {task.skills.map((skill) => (
+          {(task.skills || []).map((skill) => (
             <span key={skill} className="text-xs bg-zinc-800 text-zinc-400 px-2 py-1 rounded">{skill}</span>
           ))}
         </div>
@@ -126,7 +125,7 @@ function ModeTag({ mode }: { mode: string }) {
     pack: "bg-purple-500/20 text-purple-400",
     squad: "bg-orange-500/20 text-orange-400",
   };
-  return <span className={`text-xs px-2 py-1 rounded ${colors[mode]}`}>{mode.toUpperCase()}</span>;
+  return <span className={`text-xs px-2 py-1 rounded ${colors[mode] || "bg-zinc-700"}`}>{(mode || "solo").toUpperCase()}</span>;
 }
 
 function StatusTag({ status }: { status: string }) {
@@ -135,5 +134,5 @@ function StatusTag({ status }: { status: string }) {
     claimed: "bg-amber-500/20 text-amber-400",
     completed: "bg-zinc-500/20 text-zinc-400",
   };
-  return <span className={`text-xs px-2 py-1 rounded ${colors[status]}`}>{status}</span>;
+  return <span className={`text-xs px-2 py-1 rounded ${colors[status] || "bg-zinc-700"}`}>{status}</span>;
 }
