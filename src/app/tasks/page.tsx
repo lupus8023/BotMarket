@@ -95,7 +95,7 @@ function TaskCard({ task, timeLeft }: { task: Task; timeLeft: string }) {
   };
 
   return (
-    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 hover:border-zinc-700 transition">
+    <Link href={`/tasks/${task.id}`} className="block bg-zinc-900 border border-zinc-800 rounded-xl p-6 hover:border-zinc-700 transition">
       <div className="flex justify-between items-start mb-4">
         <div>
           <div className="flex items-center gap-2 mb-2">
@@ -122,7 +122,7 @@ function TaskCard({ task, timeLeft }: { task: Task; timeLeft: string }) {
           </button>
         )}
       </div>
-    </div>
+    </Link>
   );
 }
 

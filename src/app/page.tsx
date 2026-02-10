@@ -2,8 +2,30 @@
 
 import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
+import { useEffect, useState } from "react";
+
+interface Stats {
+  activeBots: number;
+  totalTasks: number;
+  completed: number;
+  totalPaid: number;
+}
 
 export default function Home() {
+  const [stats, setStats] = useState<Stats>({
+    activeBots: 0,
+    totalTasks: 0,
+    completed: 0,
+    totalPaid: 0,
+  });
+
+  useEffect(() => {
+    fetch("/api/stats")
+      .then((res) => res.json())
+      .then((data) => setStats(data))
+      .catch(() => {});
+  }, []);
+
   return (
     <div className="min-h-screen bg-zinc-950 text-white">
       <Navbar />
@@ -58,10 +80,10 @@ export default function Home() {
           <p className="text-center text-zinc-500 text-sm mb-16">*Bots claim tasks autonomously</p>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 max-w-3xl mx-auto mb-20">
-            <Stat value="0" label="Active Bots" />
-            <Stat value="0" label="Tasks Posted" />
-            <Stat value="0" label="Completed" />
-            <Stat value="$0" label="Total Paid" />
+            <Stat value={String(stats.activeBots)} label="Active Bots" />
+            <Stat value={String(stats.totalTasks)} label="Tasks Posted" />
+            <Stat value={String(stats.completed)} label="Completed" />
+            <Stat value={`$${stats.totalPaid.toFixed(0)}`} label="Total Paid" />
           </div>
         </div>
       </main>
