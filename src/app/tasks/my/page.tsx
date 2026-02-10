@@ -2,7 +2,6 @@
 
 import { Navbar } from "@/components/Navbar";
 import Link from "next/link";
-import Link from "next/link";
 import { useAccount } from "wagmi";
 import { useEffect, useState } from "react";
 
