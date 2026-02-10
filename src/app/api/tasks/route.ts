@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { tasks } from "@/db/schema";
+import { tasks, bots } from "@/db/schema";
 import { nanoid } from "nanoid";
+import { eq } from "drizzle-orm";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -19,7 +20,20 @@ export async function GET(request: NextRequest) {
       filtered = filtered.filter(t => t.buyerAddress.toLowerCase() === buyer.toLowerCase());
     }
 
-    return NextResponse.json({ tasks: filtered, total: filtered.length });
+    // Fetch bot names for tasks with botId
+    const tasksWithBotNames = await Promise.all(
+      filtered.map(async (task) => {
+        if (task.botId) {
+          const bot = await db.query.bots.findFirst({
+            where: eq(bots.id, task.botId),
+          });
+          return { ...task, botName: bot?.name };
+        }
+        return task;
+      })
+    );
+
+    return NextResponse.json({ tasks: tasksWithBotNames, total: tasksWithBotNames.length });
   } catch (error) {
     console.error("Error fetching tasks:", error);
     return NextResponse.json({ error: "Failed to fetch tasks" }, { status: 500 });

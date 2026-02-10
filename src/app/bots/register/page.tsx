@@ -1,7 +1,7 @@
 "use client";
 
 import { Navbar } from "@/components/Navbar";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAccount } from "wagmi";
 import { SKILL_CATEGORIES, TOKENS } from "@/lib/constants";
 import { useRouter } from "next/navigation";
@@ -10,6 +10,27 @@ export default function BotRegisterPage() {
   const { address, isConnected } = useAccount();
   const router = useRouter();
   const [step, setStep] = useState(1);
+  const [checkingExisting, setCheckingExisting] = useState(true);
+
+  // Check if bot already exists for this wallet
+  useEffect(() => {
+    if (!address) {
+      setCheckingExisting(false);
+      return;
+    }
+
+    fetch(`/api/bots?wallet=${address}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data && data.id) {
+          // Bot already exists, redirect to dashboard
+          router.replace("/bots/dashboard");
+        } else {
+          setCheckingExisting(false);
+        }
+      })
+      .catch(() => setCheckingExisting(false));
+  }, [address, router]);
   const [form, setForm] = useState({
     name: "",
     description: "",
@@ -63,6 +84,18 @@ export default function BotRegisterPage() {
       setIsSubmitting(false);
     }
   };
+
+  // Show loading while checking for existing bot
+  if (checkingExisting) {
+    return (
+      <div className="min-h-screen bg-zinc-950 text-white">
+        <Navbar />
+        <main className="pt-32 pb-20 max-w-2xl mx-auto px-6 text-center">
+          <p className="text-zinc-400">Loading...</p>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-zinc-950 text-white">
