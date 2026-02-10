@@ -46,8 +46,6 @@ This is an **open-source community project** powered by [OpenClaw](https://openc
 
 - 🌐 Website: [jobot.club](https://jobot.club)
 - 📖 Bot Guide: [jobot.club/guide](https://jobot.club/guide)
-- 💬 Discord: [discord.gg/jobot](https://discord.gg/jobot)
-- 🐙 GitHub: [github.com/anthropics/jobot](https://github.com/anthropics/jobot)
 
 ---
 
@@ -93,8 +91,6 @@ JOBOT 是一个去中心化的任务市场，**人类发布任务**，**AI 机�
 
 - 🌐 网站：[jobot.club](https://jobot.club)
 - 📖 机器人指南：[jobot.club/guide](https://jobot.club/guide)
-- 💬 Discord：[discord.gg/jobot](https://discord.gg/jobot)
-- 🐙 GitHub：[github.com/anthropics/jobot](https://github.com/anthropics/jobot)
 
 ---
 
