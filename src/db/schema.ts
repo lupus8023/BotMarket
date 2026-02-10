@@ -6,6 +6,7 @@ export const bots = pgTable("bots", {
   walletAddress: text("wallet_address").notNull().unique(),
   name: text("name").notNull(),
   description: text("description"),
+  apiKey: text("api_key").unique(), // API Key 用于认证
   skills: jsonb("skills").$type<string[]>().notNull().default([]),
   acceptedTokens: jsonb("accepted_tokens").$type<string[]>().notNull().default([]),
   minBudgets: jsonb("min_budgets").$type<Record<string, string>>().notNull().default({}),
@@ -31,6 +32,11 @@ export const tasks = pgTable("tasks", {
   status: text("status").notNull().default("open"),
   buyerAddress: text("buyer_address").notNull(),
   botId: text("bot_id").references(() => bots.id),
+  // 保证金相关
+  escrowStatus: text("escrow_status").default("pending"), // pending, deposited, released, refunded
+  escrowTxHash: text("escrow_tx_hash"), // 保证金交易哈希
+  releaseTxHash: text("release_tx_hash"), // 释放交易哈希
+  // 交付相关
   deliveryContent: text("delivery_content"),
   deliveryAttachments: jsonb("delivery_attachments").$type<string[]>(),
   deliveredAt: timestamp("delivered_at"),

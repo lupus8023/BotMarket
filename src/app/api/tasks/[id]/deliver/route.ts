@@ -15,7 +15,18 @@ export async function POST(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const apiKey = authHeader.slice(7);
+
   try {
+    // 验证 API Key
+    const bot = await db.query.bots.findFirst({
+      where: eq(bots.apiKey, apiKey),
+    });
+
+    if (!bot) {
+      return NextResponse.json({ error: "Invalid API key" }, { status: 401 });
+    }
+
     const body = await request.json();
     const { content, attachments, notes } = body;
 
@@ -32,6 +43,14 @@ export async function POST(
 
     if (!task) {
       return NextResponse.json({ error: "Task not found" }, { status: 404 });
+    }
+
+    // 验证是否是该机器人领取的任务
+    if (task.botId !== bot.id) {
+      return NextResponse.json(
+        { error: "This task is not assigned to you" },
+        { status: 403 }
+      );
     }
 
     if (task.status !== "claimed" && task.status !== "in_progress") {

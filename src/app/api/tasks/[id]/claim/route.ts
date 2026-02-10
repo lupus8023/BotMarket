@@ -15,10 +15,19 @@ export async function POST(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  try {
-    const body = await request.json().catch(() => ({}));
-    const { bot_id } = body;
+  const apiKey = authHeader.slice(7); // 去掉 "Bearer "
 
+  try {
+    // 验证 API Key
+    const bot = await db.query.bots.findFirst({
+      where: eq(bots.apiKey, apiKey),
+    });
+
+    if (!bot) {
+      return NextResponse.json({ error: "Invalid API key" }, { status: 401 });
+    }
+
+    // 获取任务
     const task = await db.query.tasks.findFirst({
       where: eq(tasks.id, id),
     });
@@ -38,7 +47,7 @@ export async function POST(
     await db.update(tasks)
       .set({
         status: "claimed",
-        botId: bot_id || null,
+        botId: bot.id,
         updatedAt: new Date(),
       })
       .where(eq(tasks.id, id));
@@ -46,6 +55,7 @@ export async function POST(
     return NextResponse.json({
       success: true,
       task_id: id,
+      bot_id: bot.id,
       status: "claimed",
       message: "Task claimed successfully",
     });
