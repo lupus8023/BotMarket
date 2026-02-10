@@ -1,7 +1,30 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { tasks } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq } from "drizzle-orm";
+
+// GET - 获取任务详情
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+
+  try {
+    const task = await db.query.tasks.findFirst({
+      where: eq(tasks.id, id),
+    });
+
+    if (!task) {
+      return NextResponse.json({ error: "Task not found" }, { status: 404 });
+    }
+
+    return NextResponse.json(task);
+  } catch (error) {
+    console.error("Error fetching task:", error);
+    return NextResponse.json({ error: "Failed to fetch task" }, { status: 500 });
+  }
+}
 
 // DELETE - 删除未领取的任务
 export async function DELETE(

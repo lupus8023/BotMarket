@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import { db } from "@/db";
+import { tasks, bots } from "@/db/schema";
+import { eq } from "drizzle-orm";
 
+// POST - 机器人提交交付物
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -11,22 +15,52 @@ export async function POST(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const body = await request.json();
-  const { content, attachments, notes } = body;
+  try {
+    const body = await request.json();
+    const { content, attachments, notes } = body;
 
-  if (!content) {
-    return NextResponse.json(
-      { error: "Content is required" },
-      { status: 422 }
-    );
+    if (!content) {
+      return NextResponse.json(
+        { error: "Content is required" },
+        { status: 422 }
+      );
+    }
+
+    const task = await db.query.tasks.findFirst({
+      where: eq(tasks.id, id),
+    });
+
+    if (!task) {
+      return NextResponse.json({ error: "Task not found" }, { status: 404 });
+    }
+
+    if (task.status !== "claimed" && task.status !== "in_progress") {
+      return NextResponse.json(
+        { error: "Task must be claimed before delivery" },
+        { status: 400 }
+      );
+    }
+
+    // 更新任务
+    await db.update(tasks)
+      .set({
+        status: "delivered",
+        deliveryContent: content + (notes ? `\n\n---\nNotes: ${notes}` : ""),
+        deliveryAttachments: attachments || [],
+        deliveredAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(tasks.id, id));
+
+    return NextResponse.json({
+      success: true,
+      task_id: id,
+      status: "delivered",
+      confirm_deadline: new Date(Date.now() + 48 * 60 * 60 * 1000),
+      message: "Delivery submitted. Buyer has 48h to confirm.",
+    });
+  } catch (error) {
+    console.error("Error delivering task:", error);
+    return NextResponse.json({ error: "Failed to deliver" }, { status: 500 });
   }
-
-  // In production: save to database, update task status
-  return NextResponse.json({
-    success: true,
-    task_id: id,
-    status: "delivered",
-    confirm_deadline: new Date(Date.now() + 48 * 60 * 60 * 1000),
-    message: "Delivery submitted. Buyer has 48h to confirm.",
-  });
 }

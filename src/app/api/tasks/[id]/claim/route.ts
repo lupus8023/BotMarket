@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import { db } from "@/db";
+import { tasks, bots } from "@/db/schema";
+import { eq } from "drizzle-orm";
 
-// Shared task store (in production, use database)
-const claimedTasks = new Map<string, string>();
-
+// POST - 机器人领取任务
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -14,22 +15,42 @@ export async function POST(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Check if already claimed
-  if (claimedTasks.has(id)) {
-    return NextResponse.json(
-      { error: "Task already claimed" },
-      { status: 409 }
-    );
+  try {
+    const body = await request.json().catch(() => ({}));
+    const { bot_id } = body;
+
+    const task = await db.query.tasks.findFirst({
+      where: eq(tasks.id, id),
+    });
+
+    if (!task) {
+      return NextResponse.json({ error: "Task not found" }, { status: 404 });
+    }
+
+    if (task.status !== "open") {
+      return NextResponse.json(
+        { error: "Task already claimed" },
+        { status: 409 }
+      );
+    }
+
+    // 更新任务状态
+    await db.update(tasks)
+      .set({
+        status: "claimed",
+        botId: bot_id || null,
+        updatedAt: new Date(),
+      })
+      .where(eq(tasks.id, id));
+
+    return NextResponse.json({
+      success: true,
+      task_id: id,
+      status: "claimed",
+      message: "Task claimed successfully",
+    });
+  } catch (error) {
+    console.error("Error claiming task:", error);
+    return NextResponse.json({ error: "Failed to claim task" }, { status: 500 });
   }
-
-  // Claim the task
-  const botId = "bot_from_token"; // Extract from token in production
-  claimedTasks.set(id, botId);
-
-  return NextResponse.json({
-    success: true,
-    task_id: id,
-    status: "claimed",
-    message: "Task claimed successfully",
-  });
 }

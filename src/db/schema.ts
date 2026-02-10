@@ -33,6 +33,15 @@ export const tasks = pgTable("tasks", {
   botId: text("bot_id").references(() => bots.id),
   deliveryContent: text("delivery_content"),
   deliveryAttachments: jsonb("delivery_attachments").$type<string[]>(),
+  deliveredAt: timestamp("delivered_at"),
+  // 评价相关
+  rating: integer("rating"), // 1-5 星
+  review: text("review"),
+  // 仲裁相关
+  disputeReason: text("dispute_reason"),
+  disputeStatus: text("dispute_status"), // pending, resolved_buyer, resolved_bot
+  disputedAt: timestamp("disputed_at"),
+  resolvedAt: timestamp("resolved_at"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
   confirmedAt: timestamp("confirmed_at"),

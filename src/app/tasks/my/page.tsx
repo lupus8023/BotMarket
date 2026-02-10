@@ -2,6 +2,7 @@
 
 import { Navbar } from "@/components/Navbar";
 import Link from "next/link";
+import Link from "next/link";
 import { useAccount } from "wagmi";
 import { useEffect, useState } from "react";
 
@@ -146,9 +147,12 @@ function TaskRow({ task, timeLeft, onDelete }: { task: Task; timeLeft: string; o
         <div>
           <div className="font-medium text-emerald-400">{formatBudget(task.budget)} {task.token}</div>
           {config.action && (
-            <button className="text-sm text-emerald-400 hover:underline mt-1">
+            <Link
+              href={`/tasks/${task.id}`}
+              className="text-sm text-emerald-400 hover:underline mt-1 block"
+            >
               {config.action}
-            </button>
+            </Link>
           )}
         </div>
         {task.status === "open" && (
